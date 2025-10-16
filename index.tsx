@@ -14,6 +14,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://aistudiocdn.com/pdfjs-dist@^4.
 
 // Helper to convert camelCase to Title Case for display
 const toTitleCase = (str: string) => {
+  if (!str) return '';
   return str.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
 };
 
@@ -24,219 +25,225 @@ const App = (): React.ReactElement => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const addressSchema = {
-    type: Type.OBJECT,
-    properties: {
-      name: { type: Type.STRING },
-      atten: { type: Type.STRING },
-      address: { type: Type.STRING },
-      city: { type: Type.STRING },
-      state: { type: Type.STRING },
-      zipCode: { type: Type.STRING },
-      email: { type: Type.STRING },
-    },
-  };
+const addressSchema = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING },
+    atten: { type: Type.STRING },
+    address: { type: Type.STRING },
+    city: { type: Type.STRING },
+    state: { type: Type.STRING },
+    zipCode: { type: Type.STRING },
+    email: { type: Type.STRING },
+  },
+};
 
-  const leaseAbstractSchema = {
-    type: Type.OBJECT,
-    description: "Detailed lease abstract data.",
-    properties: {
-      generalInformation: {
-        type: Type.OBJECT,
-        description: "Basic information about the lease agreement.",
-        properties: {
-          tenantName: { type: Type.STRING },
-          dba: { type: Type.STRING, description: "Doing Business As" },
-          suiteNumber: { type: Type.STRING },
-          buildingNumber: { type: Type.STRING },
-          storeNumber: { type: Type.STRING },
-          shoppingCenterName: { type: Type.STRING },
-          shoppingCenterAddress: { type: Type.STRING },
-          premisesGLA: { type: Type.STRING, description: "Gross Leasable Area, numeric with commas." },
-          guarantors: { type: Type.STRING },
-          areSpousesGuarantors: { type: Type.STRING, description: "Options: Yes, No, Unsure" },
-          isGuaranteeSeparate: { type: Type.STRING, description: "Is the guarantee signed separately from the lease? Options: Yes, No" },
-        },
+const clauseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    leaseSectionAndPage: { type: Type.STRING },
+    notes: { type: Type.STRING },
+  },
+};
+
+const leaseAbstractSchema = {
+  type: Type.OBJECT,
+  properties: {
+    generalInformation: {
+      type: Type.OBJECT,
+      properties: {
+        tenantName: { type: Type.STRING },
+        dba: { type: Type.STRING },
+        suiteNumber: { type: Type.STRING },
+        buildingNumber: { type: Type.STRING },
+        storeNumber: { type: Type.STRING },
+        shoppingCenterName: { type: Type.STRING },
+        shoppingCenterAddress: { type: Type.STRING },
+        premisesGLA: { type: Type.STRING },
+        guarantors: { type: Type.STRING },
+        areSpousesGuarantors: { type: Type.STRING },
+        isGuaranteeSeparate: { type: Type.STRING },
       },
-      leaseAmendmentsReviewed: {
-        type: Type.ARRAY,
-        description: "A list of all lease documents and amendments reviewed.",
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            dateOfDocument: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-            documentReviewed: { type: Type.STRING },
-            leaseSectionAndPage: { type: Type.STRING },
-            issues: { type: Type.STRING },
-          },
-        },
-      },
-      leaseTermAndDates: {
+    },
+
+    leaseAmendmentsReviewed: {
+      type: Type.ARRAY,
+      items: {
         type: Type.OBJECT,
-        description: "Key dates and term length for the lease.",
         properties: {
-          leaseTerm: { type: Type.STRING, description: "e.g., '10 years and 3 months'" },
+          dateOfDocument: { type: Type.STRING },
+          documentReviewed: { type: Type.STRING },
           leaseSectionAndPage: { type: Type.STRING },
-          leaseExecutionDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-          deliveryDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-          leaseCommencementDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-          openDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-          rentCommencementDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-          leaseExpirationDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-        },
-      },
-      noticeAddresses: {
-        type: Type.OBJECT,
-        description: "Contact information for official notices.",
-        properties: {
-          leaseSectionAndPage: { type: Type.STRING },
-          tenant: addressSchema,
-          tenantsLawyer: addressSchema,
-          franchisor: {
-            type: Type.OBJECT,
-            properties: {
-              ...addressSchema.properties,
-              leaseAddressType: { type: Type.STRING },
-            },
-          },
-        },
-      },
-      billingAndCharges: {
-        type: Type.OBJECT,
-        description: "Financial details including rent and other charges.",
-        properties: {
-          leaseSectionAndPage: { type: Type.STRING },
-          baseRentSchedule: {
-            type: Type.ARRAY,
-            description: "Schedule of base rent payments.",
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                incomeCategory: { type: Type.STRING, description: "e.g., RNT" },
-                effectiveDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-                endDate: { type: Type.STRING, description: "Format as MM/DD/YYYY" },
-                annualAmountPerSf: { type: Type.STRING, description: "Format as $XXX,XXX.XX" },
-                annualTotal: { type: Type.STRING, description: "Format as $XXX,XXX.XX" },
-                monthlyAmount: { type: Type.STRING, description: "Format as $XXX,XXX.XX" },
-              },
-            },
-          },
-          camTaxInsuranceFirstYear: { type: Type.STRING, description: "Amount to bill tenant for the first year CTI." },
-          percentageRent: {
-            type: Type.OBJECT,
-            properties: {
-              leaseSectionAndPage: { type: Type.STRING },
-              reportingFrequency: { type: Type.STRING },
-              naturalBreakpoint: { type: Type.STRING },
-              unnaturalBreakpoint: { type: Type.STRING },
-              salesYearEnd: { type: Type.STRING, description: "Format as DD/MM" },
-              billingFrequency: { type: Type.STRING },
-            },
-          },
-        },
-      },
-      leaseNotes: {
-        type: Type.ARRAY,
-        description: "Specific notes on lease clauses.",
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            leaseSectionAndPage: { type: Type.STRING },
-            reference: { type: Type.STRING, description: "e.g., Security Deposit, Use, Exclusive Use" },
-            notes: { type: Type.STRING },
-          },
-        },
-      },
-      keyClauses: {
-        type: Type.OBJECT,
-        description: "Details on important lease clauses and covenants.",
-        properties: {
-          cotenancyRequirements: { type: Type.STRING },
-          landlordKickout: { type: Type.STRING },
-          tenantKickout: { type: Type.STRING },
-          tenantGoDark: { type: Type.STRING },
-          landlordRestrictions: { type: Type.STRING, description: "Leasing/No-Build restrictions" },
-          assignmentAndSubletting: { type: Type.STRING },
-          shoppingCenterAlterations: { type: Type.STRING },
-          operatingCovenant: { type: Type.STRING, description: "Other than hours" },
-          lateChargesNSFFee: { type: Type.STRING },
-          defaultClause: { type: Type.STRING },
-          guaranty: { type: Type.STRING },
-          purchaseOptionROFR: { type: Type.STRING, description: "Purchase Option/Right of First Refusal/Right of First Offer" },
-          marketingOrPromotionalFee: { type: Type.STRING },
-          holdoverTerms: { type: Type.STRING },
-          signage: { type: Type.STRING },
-          estoppel: { type: Type.STRING },
-          eminentDomainAndSubordination: { type: Type.STRING },
-          damageOrDestruction: { type: Type.STRING },
-          relocationRight: { type: Type.STRING },
-        },
-      },
-      maintenanceAndReimbursement: {
-        type: Type.OBJECT,
-        description: "Responsibilities for maintenance, repairs, and reimbursements.",
-        properties: {
-          hvac: { type: Type.STRING },
-          tenantAllowance: { type: Type.STRING },
-          cam: {
-            type: Type.OBJECT,
-            description: "Common Area Maintenance details.",
-            properties: {
-              leaseSectionAndPage: { type: Type.STRING },
-              prorataSharePercent: { type: Type.STRING },
-              exclusions: { type: Type.STRING },
-              paymentTerms: { type: Type.STRING },
-              capitalRepairs: { type: Type.STRING },
-              auditRight: { type: Type.STRING },
-              adminFeeAllowedInCAM: { type: Type.STRING },
-              propertyManagementFeeAllowedInCAM: { type: Type.STRING },
-            },
-          },
-          realEstateTaxes: {
-            type: Type.OBJECT,
-            properties: {
-              leaseSectionAndPage: { type: Type.STRING },
-              prorataSharePercent: { type: Type.STRING },
-              paymentTerms: { type: Type.STRING },
-              appealRight: { type: Type.STRING },
-              tenantPaysForAssessments: { type: Type.STRING },
-            },
-          },
-          insurance: {
-            type: Type.OBJECT,
-            properties: {
-              leaseSectionAndPage: { type: Type.STRING },
-              insuranceReimbursed: { type: Type.STRING },
-              tenantPaysDeductible: { type: Type.STRING },
-              prorataSharePercent: { type: Type.STRING },
-              rightToSelfInsure: { type: Type.STRING },
-            },
-          },
-        },
-      },
-      tenantInsuranceInformation: {
-        type: Type.OBJECT,
-        description: "Tenant's insurance requirements.",
-        properties: {
-          leaseSectionAndPage: { type: Type.STRING },
-          coverages: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING, description: "e.g., Liability, Property Damage" },
-                coverage: { type: Type.STRING },
-              },
-            },
-          },
-          deductibleRequirementInLease: { type: Type.STRING, description: "Yes/No" },
-          comments: { type: Type.STRING },
+          issues: { type: Type.STRING },
         },
       },
     },
-  };
+
+    leaseTermAndDates: {
+      type: Type.OBJECT,
+      properties: {
+        leaseTerm: { type: Type.STRING },
+        leaseSectionAndPage: { type: Type.STRING },
+        leaseExecutionDate: { type: Type.STRING },
+        deliveryDate: { type: Type.STRING },
+        leaseCommencementDate: { type: Type.STRING },
+        openDate: { type: Type.STRING },
+        rentCommencementDate: { type: Type.STRING },
+        leaseExpirationDate: { type: Type.STRING },
+      },
+    },
+
+    noticeAddresses: {
+      type: Type.OBJECT,
+      properties: {
+        leaseSectionAndPage: { type: Type.STRING },
+        tenant: addressSchema,
+        tenantsLawyer: addressSchema,
+        franchisor: {
+          type: Type.OBJECT,
+          properties: {
+            ...addressSchema.properties,
+            leaseAddressType: { type: Type.STRING },
+          },
+        },
+      },
+    },
+
+    billingAndCharges: {
+      type: Type.OBJECT,
+      properties: {
+        leaseSectionAndPage: { type: Type.STRING },
+        baseRentSchedule: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              incomeCategory: { type: Type.STRING },
+              effectiveDate: { type: Type.STRING },
+              endDate: { type: Type.STRING },
+              annualAmountPerSf: { type: Type.STRING },
+              annualTotal: { type: Type.STRING },
+              monthlyAmount: { type: Type.STRING },
+            },
+          },
+        },
+        camTaxInsuranceFirstYear: { type: Type.STRING },
+        percentageRent: {
+          type: Type.OBJECT,
+          properties: {
+            leaseSectionAndPage: { type: Type.STRING },
+            reportingFrequency: { type: Type.STRING },
+            naturalBreakpoint: { type: Type.STRING },
+            unnaturalBreakpoint: { type: Type.STRING },
+            salesYearEnd: { type: Type.STRING },
+            billingFrequency: { type: Type.STRING },
+          },
+        },
+      },
+    },
+
+    keyClauses: {
+      type: Type.OBJECT,
+      properties: {
+        cotenancyRequirements: clauseSchema,
+        landlordKickout: clauseSchema,
+        tenantKickout: clauseSchema,
+        tenantGoDark: clauseSchema,
+        landlordRestrictions: clauseSchema,
+        assignmentAndSubletting: clauseSchema,
+        shoppingCenterAlterations: clauseSchema,
+        operatingCovenant: clauseSchema,
+        lateChargesNSFFee: clauseSchema,
+        defaultClause: clauseSchema,
+        guaranty: clauseSchema,
+        purchaseOptionROFR: clauseSchema,
+        marketingOrPromotionalFee: clauseSchema,
+        holdoverTerms: clauseSchema,
+        signage: clauseSchema,
+        estoppel: clauseSchema,
+        eminentDomainAndSubordination: clauseSchema,
+        damageOrDestruction: clauseSchema,
+        relocationRight: clauseSchema,
+        additionalNotes: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              leaseSectionAndPage: { type: Type.STRING },
+              reference: { type: Type.STRING },
+              notes: { type: Type.STRING },
+            },
+          },
+        },
+      },
+    },
+
+    maintenanceAndReimbursement: {
+      type: Type.OBJECT,
+      properties: {
+        hvac: { type: Type.STRING },
+        tenantAllowance: { type: Type.STRING },
+        cam: {
+          type: Type.OBJECT,
+          properties: {
+            leaseSectionAndPage: { type: Type.STRING },
+            prorataSharePercent: { type: Type.STRING },
+            exclusions: { type: Type.STRING },
+            paymentTerms: { type: Type.STRING },
+            capitalRepairs: { type: Type.STRING },
+            auditRight: { type: Type.STRING },
+            adminFeeAllowedInCAM: { type: Type.STRING },
+            propertyManagementFeeAllowedInCAM: { type: Type.STRING },
+          },
+        },
+        realEstateTaxes: {
+          type: Type.OBJECT,
+          properties: {
+            leaseSectionAndPage: { type: Type.STRING },
+            prorataSharePercent: { type: Type.STRING },
+            paymentTerms: { type: Type.STRING },
+            appealRight: { type: Type.STRING },
+            tenantPaysForAssessments: { type: Type.STRING },
+          },
+        },
+        insurance: {
+          type: Type.OBJECT,
+          properties: {
+            leaseSectionAndPage: { type: Type.STRING },
+            insuranceReimbursed: { type: Type.STRING },
+            tenantPaysDeductible: { type: Type.STRING },
+            prorataSharePercent: { type: Type.STRING },
+            rightToSelfInsure: { type: Type.STRING },
+          },
+        },
+      },
+    },
+
+    tenantInsuranceInformation: {
+      type: Type.OBJECT,
+      properties: {
+        leaseSectionAndPage: { type: Type.STRING },
+        coverages: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING },
+              coverage: { type: Type.STRING },
+            },
+          },
+        },
+        deductibleRequirementInLease: { type: Type.STRING },
+        comments: { type: Type.STRING },
+      },
+    },
+  },
+};
+
+
   
   const handleFileChange = (files: FileList | null) => {
     if (!files) return;
@@ -299,6 +306,9 @@ const App = (): React.ReactElement => {
     setIsLoading(true);
     setError(null);
     setAbstractData(null);
+    setProgressMessage('Preparing documents...');
+
+    const fullAbstractData = {};
 
     try {
       const leaseTexts = await Promise.all(
@@ -307,14 +317,16 @@ const App = (): React.ReactElement => {
       const leaseText = leaseTexts.join('\n\n--- END OF DOCUMENT ---\n\n');
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-      const systemInstruction = `You are a world-class legal AI specializing in commercial lease abstraction. Your primary objective is to perform a meticulous and comprehensive review of all provided lease documents, which are concatenated and separated by '--- END OF DOCUMENT ---'. You must extract highly detailed information and populate the provided JSON schema with the utmost accuracy.
+      const baseSystemInstruction = `You are a world-class legal AI specializing in commercial lease abstraction. Your primary objective is to perform a meticulous and comprehensive review of all provided lease documents, which are concatenated and separated by '--- END OF DOCUMENT ---'. You must extract highly detailed information and populate the provided JSON schema with the utmost accuracy.
 
 **Core Directives (Must be followed without exception):**
 
-1.  **Chronological Supremacy & Conflict Resolution:**
-    *   The documents are provided in chronological order. You MUST analyze them sequentially to build a timeline of the lease.
-    *   Later documents (e.g., amendments, addendums) supersede earlier ones. If a clause is amended, you MUST extract the information from the **latest effective amendment**.
-    *   The final abstract MUST reflect the current, legally binding state of the lease. Do not include outdated or superseded information. For example, if Base Rent is changed in the Second Amendment, the 'Base Rent Schedule' must only show the new, current schedule from that amendment.
+1.  **Comprehensive Analysis & Chronological Synthesis:**
+    *   The documents are provided in chronological order. You MUST analyze them sequentially to build a complete timeline and understanding of the lease.
+    *   **Core Principle:** Your final abstract must be a **complete picture** of the current lease agreement. This is achieved by starting with the original lease and layering on the changes from each subsequent amendment.
+    *   **Conflict Resolution:** When a later document (e.g., an amendment) explicitly modifies a specific section or clause from an earlier document, the information from the **latest effective amendment** replaces the corresponding older information.
+    *   **Information Retention:** Sections or clauses from the original lease or earlier amendments that are **not** explicitly changed by later documents MUST be retained and included in the final abstract. Do not discard information unless it has been directly superseded. For example, if an amendment only changes rent and term dates, you must still extract the 'Use' clause, 'Guaranty', and other unmodified clauses from the original lease.
+    *   **Rent Schedules:** The \`baseRentSchedule\` array must be a comprehensive list of all rent schedules defined across the documents. For each entry, you must use the \`sourceDocument\` field to specify which document it came from (e.g., "Original Lease", "First Amendment"). This provides a full history.
 
 2.  **Extreme Detail & Verbatim Extraction:**
     *   Your goal is comprehensiveness, not brevity. **Do not summarize.**
@@ -322,7 +334,7 @@ const App = (): React.ReactElement => {
     *   Provide all available information for every field. If a detail seems minor, include it. The user requires a complete picture.
 
 3.  **Meticulous Sourcing and Citation:**
-    *   For every piece of information extracted, you MUST cite its source, including the document name (e.g., "Original Lease," "Second Amendment"), the section number, and the page number. This is non-negotiable. Example: "Second Amendment, Section 3.a, Page 2".
+    *   For every piece of information extracted, you MUST cite its source, including the document name (e.g., "Original Lease," "Second Amendment"), the section number, and the page number. This is non-negotiable for fields where it is applicable.
 
 4.  **Absolute Schema Adherence:**
     *   Strictly follow the provided JSON schema, including all data types and formatting rules (Dates: MM/DD/YYYY; Currency: $XXX,XXX.XX; Square Footage: Numeric with commas).
@@ -330,24 +342,41 @@ const App = (): React.ReactElement => {
 5.  **"Not Provided" as a Last Resort:**
     *   Only use "Not Provided" after you have exhaustively searched all documents and are certain the information does not exist. Before concluding information is missing, double-check all amendments and exhibits.`;
 
+      const sections = Object.entries(leaseAbstractSchema.properties);
+      for (const [sectionKey, sectionSchemaDef] of sections) {
+        setProgressMessage(`Extracting: ${toTitleCase(sectionKey)}...`);
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: leaseText,
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: leaseAbstractSchema,
-        },
-      });
+        const sectionSchema = {
+          type: Type.OBJECT,
+          properties: {
+            [sectionKey]: sectionSchemaDef,
+          },
+        };
 
-      const jsonResponse = JSON.parse(response.text);
-      setAbstractData(jsonResponse);
+        const systemInstruction = `${baseSystemInstruction}\n\n**Current Task:** Your sole focus for this request is to extract the data ONLY for the \`${sectionKey}\` section. Populate only the fields within this section of the schema.`;
+        
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: leaseText,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: sectionSchema,
+          },
+        });
+
+        const jsonResponse = JSON.parse(response.text);
+        Object.assign(fullAbstractData, jsonResponse);
+        setAbstractData({ ...fullAbstractData });
+      }
+
     } catch (e: any) {
-      console.error(e);
-      setError(`An error occurred: ${e.message}`);
+      console.error('Gemini API call failed:', e);
+      const currentSection = progressMessage.replace('Extracting: ', '').replace('...', '');
+      setError(`Failed to extract data for "${currentSection}". Please try again.`);
     } finally {
       setIsLoading(false);
+      setProgressMessage('');
     }
   };
 
@@ -513,7 +542,7 @@ const App = (): React.ReactElement => {
             {isLoading ? (
               <>
                 <div className="spinner" aria-hidden="true"></div>
-                Generating...
+                {progressMessage || 'Generating...'}
               </>
             ) : (
               'Generate Abstract'
@@ -530,7 +559,7 @@ const App = (): React.ReactElement => {
             )}
           </div>
           <div className="results-container" aria-live="polite">
-            {isLoading && (
+            {isLoading && !abstractData && (
                <div className="skeleton-loader">
                  <div className="skeleton-card"></div>
                  <div className="skeleton-card"></div>
