@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleGenAI, Type } from '@google/genai';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -27,6 +27,21 @@ const App = (): React.ReactElement => {
   const [isDragging, setIsDragging] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const leaseTextCache = useRef<string>('');
+  const chatHistoryRef = useRef<HTMLDivElement>(null);
+
+  // Q&A State
+  const [userQuestion, setUserQuestion] = useState<string>('');
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model'; content: string }[]>([]);
+  const [isAnswering, setIsAnswering] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
+
+  // Auto-scroll chat history
+  useEffect(() => {
+    if (chatHistoryRef.current) {
+      chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+    }
+  }, [chatHistory, isAnswering]);
 
 const addressSchema = {
   type: Type.OBJECT,
@@ -77,7 +92,7 @@ const leaseAbstractSchema = {
           dateOfDocument: { type: Type.STRING },
           documentReviewed: { type: Type.STRING },
           leaseSectionAndPage: { type: Type.STRING },
-          issues: { type: Type.STRING },
+          issues: { type: Type.STRING,description:"lists any differences or changes from previous version of lease" },
         },
       },
     },
@@ -115,18 +130,19 @@ const leaseAbstractSchema = {
     billingAndCharges: {
       type: Type.OBJECT,
       properties: {
-        leaseSectionAndPage: { type: Type.STRING },
         baseRentSchedule: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
-              incomeCategory: { type: Type.STRING },
+              incomeCategory: { type: Type.STRING,description:"It can be Free Rent or RNT" },
               effectiveDate: { type: Type.STRING },
               endDate: { type: Type.STRING },
               annualAmountPerSf: { type: Type.STRING },
               annualTotal: { type: Type.STRING },
               monthlyAmount: { type: Type.STRING },
+              AreaInsf:{type:Type.STRING},
+              leaseSectionAndPage: { type: Type.STRING },
             },
           },
         },
@@ -145,7 +161,7 @@ const leaseAbstractSchema = {
       },
     },
 
-    keyClauses: {
+    leaseNotes: {
       type: Type.OBJECT,
       properties: {
         cotenancyRequirements: clauseSchema,
@@ -167,7 +183,7 @@ const leaseAbstractSchema = {
         eminentDomainAndSubordination: clauseSchema,
         damageOrDestruction: clauseSchema,
         relocationRight: clauseSchema,
-        additionalNotes: {
+        Other: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
@@ -268,6 +284,8 @@ const leaseAbstractSchema = {
     setSelectedFiles(newFiles);
     if (newFiles.length === 0) {
       setAbstractData(null); // Clear data if no files are left
+      setChatHistory([]); // Clear chat
+      leaseTextCache.current = ''; // Clear cache
     }
   };
   
@@ -315,6 +333,7 @@ const leaseAbstractSchema = {
         selectedFiles.map(file => extractTextFromPdf(file))
       );
       const leaseText = leaseTexts.join('\n\n--- END OF DOCUMENT ---\n\n');
+      leaseTextCache.current = leaseText; // Cache the extracted text
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const baseSystemInstruction = `You are a world-class legal AI specializing in commercial lease abstraction. Your primary objective is to perform a meticulous and comprehensive review of all provided lease documents, which are concatenated and separated by '--- END OF DOCUMENT ---'. You must extract highly detailed information and populate the provided JSON schema with the utmost accuracy.
@@ -379,6 +398,47 @@ const leaseAbstractSchema = {
       setProgressMessage('');
     }
   };
+
+  const handleAskQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userQuestion.trim() || isAnswering) return;
+
+    setIsAnswering(true);
+    setQaError(null);
+    const currentQuestion = userQuestion;
+    setChatHistory(prev => [...prev, { role: 'user', content: currentQuestion }]);
+    setUserQuestion('');
+
+    try {
+      if (!leaseTextCache.current) {
+        setProgressMessage('Analyzing documents for Q&A...');
+        const leaseTexts = await Promise.all(
+          selectedFiles.map(file => extractTextFromPdf(file))
+        );
+        leaseTextCache.current = leaseTexts.join('\n\n--- END OF DOCUMENT ---\n\n');
+        setProgressMessage('');
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+      const prompt = `Based ONLY on the content of the following lease document(s), answer the user's question. Be thorough and quote relevant sections if possible. If the answer cannot be found in the documents, state that clearly.\n\n---LEASE DOCUMENTS---\n${leaseTextCache.current}\n\n---USER QUESTION---\n${currentQuestion}`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      });
+
+      setChatHistory(prev => [...prev, { role: 'model', content: response.text }]);
+
+    } catch (e: any) {
+      console.error('Q&A Gemini call failed:', e);
+      setQaError('Sorry, I couldn\'t answer that question. Please try again.');
+      // Remove the user's question from history on failure
+      setChatHistory(prev => prev.filter(msg => msg.role !== 'user' || msg.content !== currentQuestion));
+    } finally {
+      setIsAnswering(false);
+    }
+  };
+
 
   const handleExportToExcel = () => {
     if (!abstractData) return;
@@ -524,6 +584,8 @@ const leaseAbstractSchema = {
                     e.stopPropagation();
                     setSelectedFiles([]);
                     setAbstractData(null);
+                    setChatHistory([]);
+                    leaseTextCache.current = '';
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                   aria-label="Remove all files"
@@ -578,6 +640,42 @@ const leaseAbstractSchema = {
               !isLoading && !error && <p className="placeholder-text">Your extracted lease details will appear here.</p>
             )}
           </div>
+
+          {selectedFiles.length > 0 && !isLoading && (
+            <div className="qa-panel">
+              <div className="output-header">
+                <h2>Ask a Question</h2>
+              </div>
+              <div className="chat-history" ref={chatHistoryRef}>
+                {chatHistory.length === 0 && <p className="placeholder-text">Ask a question to get started.</p>}
+                {chatHistory.map((msg, index) => (
+                  <div key={index} className={`chat-message ${msg.role}-message`}>
+                    <p>{msg.content}</p>
+                  </div>
+                ))}
+                {isAnswering && (
+                  <div className="chat-message model-message loading-message">
+                    <div className="spinner"></div>
+                  </div>
+                )}
+                {qaError && <div className="error-message" role="alert">{qaError}</div>}
+              </div>
+              <form className="qa-input-form" onSubmit={handleAskQuestion}>
+                <textarea
+                  value={userQuestion}
+                  onChange={(e) => setUserQuestion(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAskQuestion(e); }}}
+                  placeholder="e.g., Pull up all references to CAM"
+                  disabled={isAnswering || isLoading}
+                  rows={1}
+                  aria-label="Ask a question about the documents"
+                />
+                <button type="submit" disabled={isAnswering || isLoading || !userQuestion.trim()} aria-label="Send question">
+                  <i className="fa-solid fa-paper-plane"></i>
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </main>
     </div>
