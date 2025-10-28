@@ -161,41 +161,164 @@ const leaseAbstractSchema = {
       },
     },
 
-    leaseNotes: {
-      type: Type.OBJECT,
-      properties: {
-        cotenancyRequirements: clauseSchema,
-        landlordKickout: clauseSchema,
-        tenantKickout: clauseSchema,
-        tenantGoDark: clauseSchema,
-        landlordRestrictions: clauseSchema,
-        assignmentAndSubletting: clauseSchema,
-        shoppingCenterAlterations: clauseSchema,
-        operatingCovenant: clauseSchema,
-        lateChargesNSFFee: clauseSchema,
-        defaultClause: clauseSchema,
-        guaranty: clauseSchema,
-        purchaseOptionROFR: clauseSchema,
-        marketingOrPromotionalFee: clauseSchema,
-        holdoverTerms: clauseSchema,
-        signage: clauseSchema,
-        estoppel: clauseSchema,
-        eminentDomainAndSubordination: clauseSchema,
-        damageOrDestruction: clauseSchema,
-        relocationRight: clauseSchema,
-        Other: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              leaseSectionAndPage: { type: Type.STRING },
-              reference: { type: Type.STRING },
-              notes: { type: Type.STRING },
-            },
-          },
-        },
-      },
+        leaseNotes: {
+  type: Type.OBJECT,
+  properties: {
+    securityDeposit: {
+      ...clauseSchema,
+      description: "Amount held by landlord as security for tenant obligations."
     },
+    prepaidRent: {
+      ...clauseSchema,
+      description: "First month's rent or advanced rent paid before occupancy."
+    },
+    primaryUse: {
+      ...clauseSchema,
+      description: "Specifies the main permitted use of the premises by the tenant."
+    },
+    radiusRestrictions: {
+      ...clauseSchema,
+      description: "Limits tenant from opening another store within a certain distance from the shopping center."
+    },
+    exclusiveUse: {
+      ...clauseSchema,
+      description: "Tenant has exclusive rights to operate a specific business type; landlord cannot lease to competitors."
+    },
+    cotenancyRequirements: {
+      ...clauseSchema,
+      description: "Conditions about other tenants that must be open/operating for rent obligations or continued operation."
+    },
+    acceptableReplacementCotenancy: {
+      ...clauseSchema,
+      description: "Allows replacement of key tenants if original ones leave, maintaining co-tenancy requirements."
+    },
+    landlordKickout: {
+      ...clauseSchema,
+      description: "Landlord’s right to terminate the lease under certain conditions."
+    },
+    tenantKickout: {
+      ...clauseSchema,
+      description: "Tenant’s right to terminate the lease, in whole or part, under specified circumstances."
+    },
+    tenantGoDark: {
+      ...clauseSchema,
+      description: "Tenant’s right to close their store and implications for rent payment."
+    },
+    landlordRestrictions: {
+      ...clauseSchema,
+      description: "Limits on landlord’s ability to lease, develop, or modify the shopping center."
+    },
+    assignmentAndSubletting: {
+      ...clauseSchema,
+      description: "Tenant’s rights to assign or sublet their space."
+    },
+    shoppingCenterAlterations: {
+      ...clauseSchema,
+      description: "What changes the landlord can make to the shopping center, with or without tenant approval."
+    },
+    operatingCovenant: {
+      ...clauseSchema,
+      description: "Tenant’s obligation to open and continue operating at the shopping center."
+    },
+    lateChargesNSFFee: {
+      ...clauseSchema,
+      description: "Terms for handling late payments, insufficient funds, and defaults."
+    },
+    defaultClause: {
+      ...clauseSchema,
+      description: "Provisions outlining what constitutes a default and related remedies."
+    },
+    guaranty: {
+      ...clauseSchema,
+      description: "Guarantee provisions for lease obligations."
+    },
+    purchaseOptionROFR: {
+      ...clauseSchema,
+      description: "Tenant’s rights to purchase or make offers on the property."
+    },
+    marketingOrPromotionalFee: {
+      ...clauseSchema,
+      description: "Tenant’s obligation to contribute to marketing or promotional costs."
+    },
+    holdoverTerms: {
+      ...clauseSchema,
+      description: "Terms for tenant remaining after lease expiration."
+    },
+    signage: {
+      ...clauseSchema,
+      description: "Rules regarding tenant signage."
+    },
+    estoppel: {
+      ...clauseSchema,
+      description: "Documents that confirm key lease terms or amend them as needed."
+    },
+    eminentDomainAndSubordination: {
+      ...clauseSchema,
+      description: "Provisions for government taking (eminent domain) or lease subordination."
+    },
+    damageOrDestruction: {
+      ...clauseSchema,
+      description: "Terms for handling property damage or destruction."
+    },
+    relocationRight: {
+      ...clauseSchema,
+      description: "Landlord’s right to relocate tenant within the shopping center."
+    },
+    utilitiesHVACTrash: {
+      ...clauseSchema,
+      description: "Tenant’s responsibilities for utilities, HVAC, and waste removal."
+    },
+    repairsMaintenanceReplacements: {
+      ...clauseSchema,
+      description: "Responsibilities for repairs, maintenance, and replacements."
+    },
+    tenantImprovementAllowance: {
+      ...clauseSchema,
+      description: "Financial contributions from landlord for tenant improvements."
+    },
+    constructionManagementFees: {
+      ...clauseSchema,
+      description: "Terms for construction management, oversight, and general contractor fees."
+    },
+    landlordMaintenance: {
+      ...clauseSchema,
+      description: "Landlord’s responsibilities for maintenance of common areas and property."
+    },
+    brokersAndAgents: {
+      ...clauseSchema,
+      description: "Provisions regarding brokers and agents involved in the lease."
+    },
+    financialReporting: {
+      ...clauseSchema,
+      description: "Tenant’s obligation to provide financial reports."
+    },
+    parking: {
+      ...clauseSchema,
+      description: "Parking provisions for tenants, including allocation and shared use."
+    },
+    landlordWorkAndDelivery: {
+      ...clauseSchema,
+      description: "Landlord’s obligations before tenant takes possession and delivery condition."
+    },
+    tenantPlanSubmission: {
+      ...clauseSchema,
+      description: "Tenant’s obligation to submit plans before commencing work."
+    },
+    camTaxesInsurance: {
+      ...clauseSchema,
+      description: "Sections covering tenant’s obligations for common area maintenance, taxes, and insurance."
+    },
+    tenantDirectBill: {
+      ...clauseSchema,
+      description: "Costs paid directly by tenant, such as utilities."
+    },
+    Other: {
+      type: Type.ARRAY,
+      description: "Any additional responsibilities, obligations, or liabilities not covered above.",
+      items: clauseSchema,
+    },
+  },
+},
 
     maintenanceAndReimbursement: {
       type: Type.OBJECT,
@@ -324,17 +447,41 @@ const leaseAbstractSchema = {
     setIsLoading(true);
     setError(null);
     setAbstractData(null);
-    setProgressMessage('Preparing documents...');
+    const totalFiles = selectedFiles.length;
+    setProgressMessage(`Preparing ${totalFiles} document(s)...`);
 
     const fullAbstractData = {};
 
     try {
-      const leaseTexts = await Promise.all(
-        selectedFiles.map(file => extractTextFromPdf(file))
+      // Step 1: Process all documents with progress updates
+      let filesProcessed = 0;
+      const updateProgress = (fileName: string) => {
+        filesProcessed++;
+        const progressText = totalFiles > 1
+          ? `(${filesProcessed}/${totalFiles}) ${fileName}`
+          : fileName;
+        setProgressMessage(`Processing: ${progressText}`);
+      };
+
+      const textExtractionPromises = selectedFiles.map(file =>
+        extractTextFromPdf(file)
+          .then(text => {
+            updateProgress(file.name);
+            return text;
+          })
+          .catch(pdfError => {
+            console.error(`Error extracting text from ${file.name}:`, pdfError);
+            throw new Error(`Failed to process "${file.name}". The file may be corrupted or password-protected.`);
+          })
       );
+
+      const leaseTexts = await Promise.all(textExtractionPromises);
+
+      setProgressMessage('All documents processed. Generating abstract...');
       const leaseText = leaseTexts.join('\n\n--- END OF DOCUMENT ---\n\n');
       leaseTextCache.current = leaseText; // Cache the extracted text
 
+      // Step 2: Call Gemini API for each section
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const baseSystemInstruction = `You are a world-class legal AI specializing in commercial lease abstraction. Your primary objective is to perform a meticulous and comprehensive review of all provided lease documents, which are concatenated and separated by '--- END OF DOCUMENT ---'. You must extract highly detailed information and populate the provided JSON schema with the utmost accuracy.
 
@@ -355,44 +502,117 @@ const leaseAbstractSchema = {
 3.  **Meticulous Sourcing and Citation:**
     *   For every piece of information extracted, you MUST cite its source, including the document name (e.g., "Original Lease," "Second Amendment"), the section number, and the page number. This is non-negotiable for fields where it is applicable.
 
-4.  **Absolute Schema Adherence:**
+4.  **CRITICAL: JSON Formatting and Escaping:**
+    *   You are generating a JSON response. The string values you provide MUST be correctly escaped to form valid JSON.
+    *   **Double Quotes:** Any double quote character (") within the extracted text MUST be escaped with a backslash (e.g., "text with \\"quotes\\""). This is the most common cause of errors.
+    *   **Newlines:** Represent newlines within text as \\n.
+    *   **Backslashes:** Escape backslashes themselves (e.g., "C:\\\\folder\\\\file").
+    *   Failure to produce perfectly valid, parsable JSON will render the entire output useless. Double-check your escaping.
+
+5.  **Absolute Schema Adherence:**
     *   Strictly follow the provided JSON schema, including all data types and formatting rules (Dates: MM/DD/YYYY; Currency: $XXX,XXX.XX; Square Footage: Numeric with commas).
 
-5.  **"Not Provided" as a Last Resort:**
+6.  **"Not Provided" as a Last Resort:**
     *   Only use "Not Provided" after you have exhaustively searched all documents and are certain the information does not exist. Before concluding information is missing, double-check all amendments and exhibits.`;
 
       const sections = Object.entries(leaseAbstractSchema.properties);
       for (const [sectionKey, sectionSchemaDef] of sections) {
-        setProgressMessage(`Extracting: ${toTitleCase(sectionKey)}...`);
-
-        const sectionSchema = {
-          type: Type.OBJECT,
-          properties: {
-            [sectionKey]: sectionSchemaDef,
-          },
-        };
-
-        const systemInstruction = `${baseSystemInstruction}\n\n**Current Task:** Your sole focus for this request is to extract the data ONLY for the \`${sectionKey}\` section. Populate only the fields within this section of the schema.`;
         
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: leaseText,
-          config: {
-            systemInstruction: systemInstruction,
-            responseMimeType: 'application/json',
-            responseSchema: sectionSchema,
-          },
-        });
+        if (sectionKey === 'leaseNotes') {
+          // Special, granular handling for the complex leaseNotes section
+          const leaseNotesData: { [key: string]: any } = {};
+          const noteEntries = Object.entries((sectionSchemaDef as any).properties);
+  
+          for (const [noteKey, noteSchemaDef] of noteEntries) {
+            setProgressMessage(`Extracting: Lease Notes (${toTitleCase(noteKey)})...`);
+  
+            const singleNoteSchema = {
+              type: Type.OBJECT,
+              properties: { [noteKey]: noteSchemaDef },
+            };
+  
+            const systemInstruction = `${baseSystemInstruction}\n\n**Current Task:** Your sole focus for this request is to extract the data ONLY for the \`${noteKey}\` clause within the Lease Notes. Populate only the fields for this single clause.`;
+  
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: leaseText,
+              config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: 'application/json',
+                responseSchema: singleNoteSchema,
+              },
+            });
+            
+            // Handle potentially empty responses gracefully
+            if (!response.text || response.text.trim() === '') {
+              console.warn(`Received empty response for lease note: ${noteKey}.`);
+              if (noteKey === 'Other') {
+                  leaseNotesData[noteKey] = [];
+              } else {
+                  leaseNotesData[noteKey] = { leaseSectionAndPage: "Not Found", notes: "Not Found" };
+              }
+              continue; // Move to the next note
+            }
+  
+            let jsonResponse;
+            try {
+              jsonResponse = JSON.parse(response.text);
+            } catch (jsonError) {
+              console.error(`Failed to parse JSON for note: ${noteKey}. Error:`, jsonError);
+              console.error("Malformed response text from Gemini:", response.text);
+              throw new Error(`The AI model returned an invalid data format for the "${toTitleCase(noteKey)}" note.`);
+            }
+  
+            Object.assign(leaseNotesData, jsonResponse);
+          }
+          
+          (fullAbstractData as any).leaseNotes = leaseNotesData;
+          setAbstractData({ ...fullAbstractData });
 
-        const jsonResponse = JSON.parse(response.text);
-        Object.assign(fullAbstractData, jsonResponse);
-        setAbstractData({ ...fullAbstractData });
+        } else {
+           // Original logic for all other sections
+          setProgressMessage(`Extracting: ${toTitleCase(sectionKey)}...`);
+
+          const sectionSchema = {
+            type: Type.OBJECT,
+            properties: { [sectionKey]: sectionSchemaDef },
+          };
+
+          const systemInstruction = `${baseSystemInstruction}\n\n**Current Task:** Your sole focus for this request is to extract the data ONLY for the \`${sectionKey}\` section. Populate only the fields within this section of the schema.`;
+          
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: leaseText,
+            config: {
+              systemInstruction: systemInstruction,
+              responseMimeType: 'application/json',
+              responseSchema: sectionSchema,
+            },
+          });
+
+          if (!response.text || response.text.trim() === '') {
+             throw new Error(`The AI model returned an empty response for the "${toTitleCase(sectionKey)}" section.`);
+          }
+
+          let jsonResponse;
+          try {
+            jsonResponse = JSON.parse(response.text);
+          } catch (jsonError) {
+            console.error(`Failed to parse JSON for section: ${sectionKey}. Error:`, jsonError);
+            console.error("Malformed response text from Gemini:", response.text);
+            throw new Error(`The AI model returned an invalid data format for the "${toTitleCase(sectionKey)}" section.`);
+          }
+          
+          Object.assign(fullAbstractData, jsonResponse);
+          setAbstractData({ ...fullAbstractData });
+        }
       }
 
     } catch (e: any) {
-      console.error('Gemini API call failed:', e);
-      const currentSection = progressMessage.replace('Extracting: ', '').replace('...', '');
-      setError(`Failed to extract data for "${currentSection}". Please try again.`);
+      console.error('Operation failed:', e);
+      // If a custom error message was thrown, use it. Otherwise, create one.
+      const errorMessage = e.message || `An unexpected error occurred. Please check the console and try again.`;
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
       setProgressMessage('');
@@ -495,7 +715,7 @@ const leaseAbstractSchema = {
   const renderValueHighlight = (value: any) => {
     // FIX: Safely convert value to string, handling null/undefined.
     const stringValue = String(value ?? '');
-    if (stringValue.toLowerCase().includes('not provided') || stringValue.toLowerCase().includes('conflicting info')) {
+    if (stringValue.toLowerCase().includes('not provided') || stringValue.toLowerCase().includes('conflicting info') || stringValue.toLowerCase().includes('not found')) {
       return <span className="highlight">{stringValue}</span>;
     }
     return stringValue;
