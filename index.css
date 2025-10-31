@@ -220,6 +220,10 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.export-button i {
+  font-size: 1.1rem;
+}
+
 .export-button:hover:not(:disabled) {
   background-color: var(--secondary-hover-color);
 }
@@ -245,7 +249,7 @@ button:disabled {
   border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 1.5rem;
-  background-color: #fdfdfd;
+  background-color: var(--panel-background);
 }
 
 .result-card h3 {
@@ -253,7 +257,15 @@ button:disabled {
   margin-bottom: 1rem;
   color: var(--primary-color);
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.result-card h3 i {
+  font-size: 1.1rem;
+  color: var(--primary-hover-color);
 }
 
 .result-card h4 {
@@ -262,29 +274,40 @@ button:disabled {
   margin-bottom: 0.5rem;
 }
 
-.result-list {
-  list-style-type: none;
-  padding: 0;
+/* New Key-Value Display Styles */
+.kv-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
-
-.result-card li {
-  padding: 0.6rem 0;
+.kv-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 30%) 1fr;
+  gap: 0.5rem 1.5rem;
+  padding: 0.8rem 0;
   border-bottom: 1px solid #f0f0f0;
+  align-items: start;
 }
-
-.result-card li:last-child {
+.kv-row:last-child {
   border-bottom: none;
+  padding-bottom: 0;
 }
-
-.result-card strong {
+.kv-row:first-child {
+  padding-top: 0;
+}
+.kv-key {
   font-weight: 600;
-  display: block;
-  margin-bottom: 0.25rem;
   color: #495057;
+  word-break: break-word;
 }
+.kv-value {
+  word-break: break-word;
+}
+/* End New Styles */
+
 
 .value-wrapper {
-  padding-left: 1rem;
+  /* Removed padding as kv-value handles layout now */
   word-break: break-word;
 }
 

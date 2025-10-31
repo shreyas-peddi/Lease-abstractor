@@ -18,6 +18,17 @@ const toTitleCase = (str: string) => {
   return str.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
 };
 
+const sectionIcons: { [key: string]: string } = {
+  generalInformation: 'fa-solid fa-building-user',
+  leaseAmendmentsReviewed: 'fa-solid fa-file-signature',
+  leaseTermAndDates: 'fa-solid fa-calendar-days',
+  noticeAddresses: 'fa-solid fa-map-location-dot',
+  billingAndCharges: 'fa-solid fa-file-invoice-dollar',
+  leaseNotes: 'fa-solid fa-clipboard-list',
+  maintenanceAndReimbursement: 'fa-solid fa-wrench',
+  tenantInsuranceInformation: 'fa-solid fa-shield-halved',
+};
+
 // FIX: Add explicit return type React.ReactElement to avoid JSX namespace issues.
 const App = (): React.ReactElement => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -660,43 +671,72 @@ const leaseAbstractSchema = {
   };
 
 
-  const handleExportToExcel = () => {
+  const handleExportToCsv = () => {
     if (!abstractData) return;
-
-    const flattenDataForExcel = (data: any) => {
-      const rows: (string | number)[][] = [];
-      const process = (obj: any, prefix = '') => {
-        if (typeof obj !== 'object' || obj === null) return;
-
-        Object.entries(obj).forEach(([key, value]) => {
-          const newPrefix = prefix ? `${prefix} > ${toTitleCase(key)}` : toTitleCase(key);
-          if (typeof value === 'object' && value !== null) {
-            if (Array.isArray(value)) {
-              rows.push([newPrefix]);
-              value.forEach((item, index) => {
-                rows.push([`${newPrefix} [${index + 1}]`]);
-                process(item, `  `); // Indent array items
-              });
-            } else {
-              process(value, newPrefix);
-            }
-          } else {
-            // FIX: Explicitly convert the value to a string to prevent type errors when pushing to the `rows` array, which expects `string | number`.
-            rows.push([newPrefix, String(value ?? '')]);
-          }
+  
+    const rows: (string | number | null | undefined)[][] = [];
+  
+    const processNode = (data: any, prefix: string) => {
+      if (typeof data !== 'object' || data === null) {
+        // Handle simple value case
+        if (prefix) rows.push([prefix, data]);
+        return;
+      }
+  
+      if (Array.isArray(data)) {
+        // Handle arrays of objects as a distinct table
+        if (data.length > 0 && typeof data[0] === 'object' && data[0] !== null) {
+          rows.push([]); // Spacer before table
+          if (prefix) rows.push([prefix]); // Sub-section title for the table
+          
+          // Get all unique keys from all objects in the array to handle inconsistencies
+          const allKeys = [...new Set(data.flatMap(item => Object.keys(item)))];
+          const headers = allKeys.map(k => toTitleCase(k));
+          rows.push(headers);
+  
+          // Add a row for each object
+          data.forEach(item => {
+            const row = allKeys.map(k => {
+              const val = item[k];
+              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
+              return val;
+            });
+            rows.push(row);
+          });
+        } else {
+          // Handle simple arrays or empty arrays
+          rows.push([prefix, data.join('; ')]);
+        }
+      } else { // It's an object
+        Object.entries(data).forEach(([key, value]) => {
+          const currentKey = prefix ? `${prefix} - ${toTitleCase(key)}` : toTitleCase(key);
+          processNode(value, currentKey);
         });
-      };
-      process(data);
-      return rows;
+      }
     };
-
-    const data = flattenDataForExcel(abstractData);
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    ws['!cols'] = [{ wch: 45 }, { wch: 60 }];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Lease Abstract');
-    XLSX.writeFile(wb, 'Lease_Abstract.xlsx');
+  
+    // Iterate over each main section in the abstract data
+    Object.entries(abstractData).forEach(([sectionKey, sectionData]) => {
+      const sectionTitle = toTitleCase(sectionKey);
+      rows.push([sectionTitle]); // Add a title row for the section
+      processNode(sectionData, ''); // Process the data within that section
+      rows.push([]); // Add a blank line between main sections
+    });
+  
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const csvOutput = XLSX.utils.sheet_to_csv(ws);
+  
+    const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'Lease_Abstract.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   // Drag and drop handlers
@@ -741,14 +781,14 @@ const leaseAbstractSchema = {
     }
   
     return (
-      <ul className="result-list">
+      <div className="kv-container">
         {Object.entries(data).map(([key, value]) => (
-          <li key={key}>
-            <strong>{toTitleCase(key)}:</strong>
-            {renderAbstractData(value)}
-          </li>
+            <div className="kv-row" key={key}>
+                <div className="kv-key">{toTitleCase(key)}</div>
+                <div className="kv-value">{renderAbstractData(value)}</div>
+            </div>
         ))}
-      </ul>
+      </div>
     );
   };
   
@@ -835,8 +875,8 @@ const leaseAbstractSchema = {
           <div className="output-header">
             <h2>Lease Abstract</h2>
             {abstractData && !isLoading && (
-              <button className="export-button" onClick={handleExportToExcel}>
-                <i className="fa-solid fa-file-excel"></i> Export to Excel
+              <button className="export-button" onClick={handleExportToCsv}>
+                <i className="fa-solid fa-file-csv"></i> Export to CSV
               </button>
             )}
           </div>
@@ -852,7 +892,10 @@ const leaseAbstractSchema = {
             {abstractData ? (
               Object.entries(abstractData).map(([sectionTitle, sectionData]) => (
                 <div key={sectionTitle} className="result-card">
-                  <h3>{toTitleCase(sectionTitle)}</h3>
+                  <h3>
+                    <i className={sectionIcons[sectionTitle] || 'fa-solid fa-file-contract'}></i>
+                    {toTitleCase(sectionTitle)}
+                  </h3>
                   {renderAbstractData(sectionData)}
                 </div>
               ))
