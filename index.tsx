@@ -8,6 +8,7 @@ import ReactDOM from 'react-dom/client';
 import { GoogleGenAI, Type } from '@google/genai';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
+import Tesseract from 'tesseract.js';
 
 // Set up the PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://aistudiocdn.com/pdfjs-dist@^4.5.136/build/pdf.worker.min.mjs`;
@@ -423,32 +424,70 @@ const leaseAbstractSchema = {
     }
   };
   
-  const extractTextFromPdf = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        if (!event.target?.result) {
-          return reject(new Error("Failed to read file."));
-        }
-        try {
-          const typedArray = new Uint8Array(event.target.result as ArrayBuffer);
-          const pdf = await pdfjsLib.getDocument(typedArray).promise;
-          let fullText = '';
-          for (let i = 1; i <= pdf.numPages; i++) {
+  const extractTextFromPdf = async (file: File, onProgress: (message: string) => void): Promise<string> => {
+    onProgress(`Reading file: ${file.name}`);
+    const reader = new FileReader();
+    const fileReadPromise = new Promise<ArrayBuffer>((resolve, reject) => {
+        reader.onload = (event) => {
+            if (!event.target?.result) {
+                return reject(new Error("Failed to read file."));
+            }
+            resolve(event.target.result as ArrayBuffer);
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsArrayBuffer(file);
+    });
+
+    const arrayBuffer = await fileReadPromise;
+    const typedArray = new Uint8Array(arrayBuffer);
+    const pdf = await pdfjsLib.getDocument(typedArray).promise;
+    let fullText = '';
+    let worker: Tesseract.Worker | null = null;
+
+    try {
+        for (let i = 1; i <= pdf.numPages; i++) {
+            onProgress(`${file.name} - Page ${i}/${pdf.numPages}`);
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-            fullText += pageText + '\n\n';
-          }
-          resolve(fullText);
-        } catch (error) {
-          reject(error);
+
+            // Heuristic to detect image-based pages: few text items or very short total text length.
+            if (textContent.items.length < 15 && pageText.trim().length < 150) {
+                onProgress(`${file.name} - Page ${i}/${pdf.numPages} (OCR Scan)`);
+                
+                // Initialize worker only when first needed
+                if (!worker) {
+                    worker = await Tesseract.createWorker();
+                }
+
+                const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR quality
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                if (!context) throw new Error("Could not get canvas context");
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+                await page.render(renderContext as any).promise;
+                
+                const { data: { text } } = await worker.recognize(canvas);
+                fullText += text + '\n\n';
+            } else {
+                fullText += pageText + '\n\n';
+            }
+            page.cleanup();
         }
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsArrayBuffer(file);
-    });
-  };
+    } finally {
+        if (worker) {
+            await worker.terminate();
+        }
+    }
+
+    return fullText;
+};
 
   const handleGenerateAbstract = async () => {
     if (selectedFiles.length === 0) {
@@ -464,29 +503,22 @@ const leaseAbstractSchema = {
     const fullAbstractData = {};
 
     try {
-      // Step 1: Process all documents with progress updates
+      // Step 1: Process all documents sequentially with detailed progress updates
+      const leaseTexts: string[] = [];
       let filesProcessed = 0;
-      const updateProgress = (fileName: string) => {
-        filesProcessed++;
-        const progressText = totalFiles > 1
-          ? `(${filesProcessed}/${totalFiles}) ${fileName}`
-          : fileName;
-        setProgressMessage(`Processing: ${progressText}`);
-      };
-
-      const textExtractionPromises = selectedFiles.map(file =>
-        extractTextFromPdf(file)
-          .then(text => {
-            updateProgress(file.name);
-            return text;
-          })
-          .catch(pdfError => {
-            console.error(`Error extracting text from ${file.name}:`, pdfError);
-            throw new Error(`Failed to process "${file.name}". The file may be corrupted or password-protected.`);
-          })
-      );
-
-      const leaseTexts = await Promise.all(textExtractionPromises);
+      for (const file of selectedFiles) {
+          filesProcessed++;
+          const progressPrefix = totalFiles > 1 ? `(${filesProcessed}/${totalFiles})` : '';
+          try {
+              const text = await extractTextFromPdf(file, (message) => {
+                   setProgressMessage(`Processing ${progressPrefix}: ${message}`);
+              });
+              leaseTexts.push(text);
+          } catch (pdfError: any) {
+              console.error(`Error extracting text from ${file.name}:`, pdfError);
+              throw new Error(`Failed to process "${file.name}". The file may be corrupted, password-protected, or the OCR scan failed.`);
+          }
+      }
 
       setProgressMessage('All documents processed. Generating abstract...');
       const leaseText = leaseTexts.join('\n\n--- END OF DOCUMENT ---\n\n');
@@ -643,9 +675,11 @@ const leaseAbstractSchema = {
     try {
       if (!leaseTextCache.current) {
         setProgressMessage('Analyzing documents for Q&A...');
-        const leaseTexts = await Promise.all(
-          selectedFiles.map(file => extractTextFromPdf(file))
-        );
+        const leaseTexts = [];
+        for (const file of selectedFiles) {
+            const text = await extractTextFromPdf(file, (msg) => console.log(msg)); // Use dummy progress reporter
+            leaseTexts.push(text);
+        }
         leaseTextCache.current = leaseTexts.join('\n\n--- END OF DOCUMENT ---\n\n');
         setProgressMessage('');
       }
