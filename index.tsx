@@ -458,6 +458,13 @@ const leaseAbstractSchema = {
                 // Initialize worker only when first needed
                 if (!worker) {
                     worker = await Tesseract.createWorker();
+                    // Set Tesseract parameters to better handle complex layouts.
+                    // 'preserve_interword_spaces' maintains horizontal spacing, which is crucial
+                    // for correctly interpreting tables and multi-column text. The default
+                    // Page Segmentation Mode (PSM) is generally robust for varied layouts.
+                    await worker.setParameters({
+                        preserve_interword_spaces: '1',
+                    });
                 }
 
                 const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR quality
