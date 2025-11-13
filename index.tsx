@@ -47,6 +47,7 @@ const App = (): React.ReactElement => {
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model'; content: string }[]>([]);
   const [isAnswering, setIsAnswering] = useState(false);
   const [qaError, setQaError] = useState<string | null>(null);
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
 
   // Auto-scroll chat history
   useEffect(() => {
@@ -792,6 +793,16 @@ const leaseAbstractSchema = {
     }
   };
 
+  const handleCopyMessage = (text: string, index: number) => {
+    if (copiedMessageIndex === index) return; // Prevent re-copying
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedMessageIndex(index);
+      setTimeout(() => setCopiedMessageIndex(null), 2000); // Reset after 2 seconds
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+    });
+  };
+
   // FIX: Change parameter type to 'any' to handle various data types from the API response and prevent type errors.
   const renderValueHighlight = (value: any) => {
     // FIX: Safely convert value to string, handling null/undefined.
@@ -955,6 +966,14 @@ const leaseAbstractSchema = {
                 {chatHistory.map((msg, index) => (
                   <div key={index} className={`chat-message ${msg.role}-message`}>
                     <p>{msg.content}</p>
+                    <button
+                      className="copy-chat-btn"
+                      onClick={() => handleCopyMessage(msg.content, index)}
+                      aria-label="Copy message"
+                      title="Copy message"
+                    >
+                      <i className={copiedMessageIndex === index ? 'fa-solid fa-check' : 'fa-regular fa-copy'}></i>
+                    </button>
                   </div>
                 ))}
                 {isAnswering && (

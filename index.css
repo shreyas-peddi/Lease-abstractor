@@ -400,11 +400,13 @@ button:disabled {
   border-radius: 12px;
   max-width: 85%;
   word-wrap: break-word;
+  position: relative;
 }
 
 .chat-message p {
   margin: 0;
   white-space: pre-wrap;
+  padding-right: 30px; /* Space for the copy button */
 }
 
 .user-message {
@@ -430,6 +432,43 @@ button:disabled {
   border-color: rgba(0,0,0,0.1);
   border-top-color: var(--text-color);
 }
+
+.copy-chat-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-message:hover .copy-chat-btn {
+  opacity: 0.6;
+}
+
+.copy-chat-btn:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.copy-chat-btn i {
+  font-size: 0.9rem;
+}
+
+.copy-chat-btn .fa-check {
+  color: var(--secondary-color);
+}
+
 
 .qa-input-form {
   display: flex;
